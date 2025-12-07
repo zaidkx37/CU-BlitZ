@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All Pending Assignments - CULMS</title>
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cu.edu.pk/cpanelS/bootstrap/css/bootstrap.min.css">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="view-all.css">
+</head>
+<body class="hold-transition skin-blue">
+  <div class="wrapper">
+    <!-- Header -->
+    <header class="main-header">
+      <a href="https://cu.edu.pk/cpanelS/index.php" class="logo" style="text-decoration: none;">
+        <span class="logo-lg"><b>CULMS</b> | Assignments</span>
+      </a>
+      <nav class="navbar navbar-static-top" role="navigation">
+        <div class="navbar-custom-menu">
+          <ul class="nav navbar-nav">
+            <li>
+              <a href="https://cu.edu.pk/cpanelS/index.php" title="Back to Dashboard">
+                <i class="fa fa-home"></i> Dashboard
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Content Wrapper -->
+    <div class="content-wrapper" style="margin-left: 0;">
+      <!-- Content Header -->
+      <section class="content-header">
+        <h1>
+          <i class="fa fa-tasks"></i> All Pending Assignments
+          <small id="assignment-count"></small>
+          <button id="refresh-assignments-btn" class="btn btn-default" style="margin-left: 20px;" title="Refresh assignments">
+            <i class="fa fa-refresh"></i> Refresh
+          </button>
+        </h1>
+        <ol class="breadcrumb">
+          <li><a href="https://cu.edu.pk/cpanelS/index.php"><i class="fa fa-home"></i> Dashboard</a></li>
+          <li class="active">Pending Assignments</li>
+        </ol>
+      </section>
+
+      <!-- Main content -->
+      <section class="content">
+        <!-- Loading State -->
+        <div id="loading-state" class="box">
+          <div class="box-body">
+            <div class="text-center" style="padding: 40px;">
+              <i class="fa fa-spinner fa-spin fa-3x" style="color: #3c8dbc;"></i>
+              <p style="margin-top: 20px; font-size: 16px;">Loading your pending assignments...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assignments Container -->
+        <div id="assignments-container" style="display: none;">
+          <!-- Assignment cards will be inserted here by JavaScript -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="box" style="display: none;">
+          <div class="box-body text-center" style="padding: 60px 20px;">
+            <i class="fa fa-check-circle fa-5x" style="color: #00a65a; margin-bottom: 20px;"></i>
+            <h3 style="color: #00a65a;">No Pending Assignments!</h3>
+            <p style="font-size: 16px; color: #666;">You're all caught up. Great job!</p>
+            <a href="https://cu.edu.pk/cpanelS/index.php" class="btn btn-primary" style="margin-top: 20px;">
+              <i class="fa fa-home"></i> Back to Dashboard
+            </a>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="box box-danger" style="display: none;">
+          <div class="box-body text-center" style="padding: 40px;">
+            <i class="fa fa-exclamation-triangle fa-4x" style="color: #dd4b39; margin-bottom: 20px;"></i>
+            <h3 style="color: #dd4b39;">Error Loading Assignments</h3>
+            <p id="error-message" style="font-size: 14px; color: #666; margin-top: 10px;"></p>
+            <button id="retry-btn" class="btn btn-primary" style="margin-top: 20px;">
+              <i class="fa fa-refresh"></i> Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="main-footer" style="margin-left: 0;">
+      <div class="pull-right hidden-xs">
+        <b>Version</b> 1.0.0
+      </div>
+      <strong>CULMS Assignment Tracker</strong> - Chrome Extension
+    </footer>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="view-all.js"></script>
+</body>
+</html>

@@ -2,28 +2,55 @@
   "manifest_version": 3,
   "author": "Muhammad Zaid",
   "name": "CU-BlitZ",
-  "description": "Blitz Through CUSIT Evaluations. Unlock Your Results, Because You have better things to do than rating professors.",
-  "version": "1.0.1",
-  "permissions": ["storage", "scripting"],
+  "description": "A feature-packed extension for CUSIT students: Auto-fill evaluations & track pending assignments",
+  "version": "2.0.0",
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.cu.edu.pk/*"
+  ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "features/evaluation-automation/popup.html",
     "default_icon": {
       "16": "icons/image-16x16.jpg",
       "48": "icons/image-48x48.jpg",
       "128": "icons/image-128x128.jpg"
     },
-    "default_title": "CU-BlitZ"
+    "default_title": "CU-BlitZ - CUSIT Tools"
   },
   "icons": {
     "16": "icons/image-16x16.jpg",
     "48": "icons/image-48x48.jpg",
     "128": "icons/image-128x128.jpg"
   },
+  "background": {
+    "service_worker": "features/assignment-tracker/background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://*.cu.edu.pk/*"],
-      "js": ["content.js"]
+      "js": ["features/evaluation-automation/content.js"]
+    },
+    {
+      "matches": [
+        "https://*.cu.edu.pk/cpanelS/index.php*",
+        "https://*.cu.edu.pk/cpanelS/"
+      ],
+      "js": ["features/assignment-tracker/content-dashboard.js"],
+      "css": ["features/assignment-tracker/injected-styles.css"],
+      "run_at": "document_end"
     }
   ],
-  "host_permissions": ["https://*.cu.edu.pk/*"]
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "features/assignment-tracker/view-all.html",
+        "features/assignment-tracker/view-all.js",
+        "features/assignment-tracker/view-all.css"
+      ],
+      "matches": ["https://*.cu.edu.pk/*"]
+    }
+  ]
 }

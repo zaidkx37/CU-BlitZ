@@ -1,0 +1,110 @@
+/* Styles for CULMS Assignment Tracker injected elements */
+
+/* Widget container */
+#culms-pending-assignments-widget {
+  margin-bottom: 20px;
+}
+
+#culms-pending-assignments-widget .box-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #f4f4f4;
+}
+
+#culms-pending-assignments-widget .box-title {
+  color: #3c8dbc;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+#culms-pending-assignments-widget .table {
+  margin-bottom: 0;
+}
+
+#culms-pending-assignments-widget .label-danger {
+  background-color: #dd4b39;
+}
+
+/* Header icon styling */
+#culms-assignments-header-icon {
+  position: relative;
+  display: block;
+  padding: 15px;
+  color: inherit;
+  text-decoration: none;
+}
+
+#culms-assignments-header-icon:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+#culms-assignments-header-icon .label {
+  position: absolute;
+  top: 9px;
+  right: 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  padding: 2px 5px;
+}
+
+#culms-assignments-header-icon .fa-tasks {
+  font-size: 15px;
+}
+
+/* View All and Refresh buttons */
+.box-tools .btn {
+  margin-left: 5px;
+}
+
+#culms-view-all-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+#culms-view-all-btn:hover {
+  background-color: #2e6da4;
+  border-color: #204d74;
+}
+
+#culms-refresh-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+#culms-refresh-btn:hover {
+  background-color: #e6e6e6;
+  border-color: #adadad;
+}
+
+#culms-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#culms-refresh-btn .fa-refresh.fa-spin {
+  animation: fa-spin 1s infinite linear;
+}
+
+/* Loading state */
+.culms-loading {
+  text-align: center;
+  padding: 20px;
+}
+
+.culms-loading i {
+  font-size: 24px;
+  color: #3c8dbc;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #culms-pending-assignments-widget table th,
+  #culms-pending-assignments-widget table td {
+    font-size: 12px;
+    padding: 5px;
+  }
+
+  #culms-view-all-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
