@@ -7,6 +7,10 @@
   let widgetInjected = false;
   let isRefreshing = false;
 
+  const CACHE_TTL = 3600000; // 1 hour in milliseconds
+  // Use relative URLs to avoid CORS issues between www.cu.edu.pk and cu.edu.pk
+  const LMS_BASE_URL = '/cpanelS/';
+
   // Initialize on page load
   async function init() {
     // Check if we're on the dashboard page
@@ -23,11 +27,11 @@
     // Check cache first
     const cachedData = await getCachedAssignments();
 
-    if (cachedData && cachedData.isComplete && !isCacheStale(cachedData)) {
+    if (cachedData && cachedData.isComplete && !isCacheStale(cachedData) && !isCacheSuspicious(cachedData)) {
       displayAssignments(cachedData.assignments);
     } else {
-      // Request fresh data from background script
-      chrome.runtime.sendMessage({ action: 'fetchAssignments' });
+      // Fetch directly from content script (has cookie access)
+      fetchAllAssignments();
     }
   }
 
@@ -86,10 +90,223 @@
     return age >= cache.ttl;
   }
 
-  // Listen for messages from background script (for tab-based updates)
+  // Check if cache is suspicious (likely from expired session)
+  // Cache with 0 courses processed likely means session was invalid during fetch
+  function isCacheSuspicious(cache) {
+    return cache.isComplete &&
+           cache.progress?.total === 0 &&
+           cache.assignments?.length === 0;
+  }
+
+  // ========== FETCH FUNCTIONS (run in content script for cookie access) ==========
+
+  // Fetch all assignments directly from content script
+  async function fetchAllAssignments() {
+    try {
+      // Step 1: Fetch course list
+      const courses = await fetchCourses();
+
+      if (courses.length === 0) {
+        await cacheAssignments([], true);
+        return [];
+      }
+
+      // Step 2: Fetch assignments for each course with progressive updates
+      let allAssignments = [];
+      let completedCourses = 0;
+      const totalCourses = courses.length;
+
+      const assignmentPromises = courses.map(async (course) => {
+        try {
+          const courseAssignments = await fetchAssignmentsForCourse(course);
+          allAssignments = [...allAssignments, ...courseAssignments];
+          completedCourses++;
+          const isComplete = completedCourses === totalCourses;
+          await cacheAssignments(allAssignments, isComplete, completedCourses, totalCourses);
+          return courseAssignments;
+        } catch (err) {
+          completedCourses++;
+          const isComplete = completedCourses === totalCourses;
+          await cacheAssignments(allAssignments, isComplete, completedCourses, totalCourses);
+          return [];
+        }
+      });
+
+      await Promise.all(assignmentPromises);
+      return allAssignments;
+
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      await cacheAssignments([], true);
+      return [];
+    }
+  }
+
+  // Fetch course list from mycourses.php
+  async function fetchCourses() {
+    const url = `${LMS_BASE_URL}mycourses.php`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch courses: ${response.status}`);
+    }
+
+    const html = await response.text();
+    return parseCourses(html);
+  }
+
+  // Parse course list from HTML
+  function parseCourses(html) {
+    const courses = [];
+    const seenCourses = new Set();
+
+    const linkPattern = /<a\s+href=['"]outline\.php\?([^'"]+)['"]\s*>([^<]+)<\/a>/gi;
+
+    let match;
+    while ((match = linkPattern.exec(html)) !== null) {
+      const queryString = match[1];
+      const courseId = match[2].trim();
+
+      try {
+        const urlParams = new URLSearchParams(queryString);
+        const section = urlParams.get('section') || '';
+        const teacherId = urlParams.get('teacherID');
+        const session = urlParams.get('sess');
+        const cpsess = urlParams.get('cpsess');
+
+        const courseKey = `${courseId}-${teacherId}`;
+        if (seenCourses.has(courseKey)) continue;
+        seenCourses.add(courseKey);
+
+        const titleMatch = html.substring(match.index).match(/<\/a><\/td>\s*<td[^>]*><a[^>]*>([^<]+)<\/a>/);
+        const courseTitle = titleMatch ? titleMatch[1].trim() : 'Unknown';
+
+        courses.push({
+          courseId, courseTitle, section, teacherId, session, cpsess,
+          shift: 'Morning'
+        });
+      } catch (err) {
+        // Skip malformed entries
+      }
+    }
+
+    return courses;
+  }
+
+  // Fetch assignments for a specific course
+  async function fetchAssignmentsForCourse(course) {
+    const url = `${LMS_BASE_URL}assignments.php?` +
+      `courseid=${encodeURIComponent(course.courseId)}` +
+      `&teacherID=${course.teacherId}` +
+      `&section=${encodeURIComponent(course.section)}` +
+      `&shift=${encodeURIComponent(course.shift)}` +
+      `&sess=${encodeURIComponent(course.session)}` +
+      `&cpsess=${course.cpsess}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch assignments for ${course.courseId}: ${response.status}`);
+    }
+
+    const html = await response.text();
+    // Store full URL for use in extension pages (view-all.html)
+    const fullUrl = window.location.origin + url;
+    return parseAssignments(html, course, fullUrl);
+  }
+
+  // Parse assignments from HTML
+  function parseAssignments(html, course, assignmentPageUrl) {
+    const pendingAssignments = [];
+    const trPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let rowMatch;
+
+    while ((rowMatch = trPattern.exec(html)) !== null) {
+      const rowHtml = rowMatch[1];
+
+      if (rowHtml.includes('colspan')) continue;
+
+      if (rowHtml.includes('asgupload.php')) {
+        const cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        const cells = [];
+        let cellMatch;
+
+        while ((cellMatch = cellPattern.exec(rowHtml)) !== null) {
+          cells.push(cellMatch[1]);
+        }
+
+        if (cells.length < 7) continue;
+
+        const assignmentNo = extractText(cells[0]);
+        const title = extractText(cells[1]);
+        const description = cells[2];
+        const dateAdded = extractText(cells[5]);
+        const lastDate = extractText(cells[6]);
+
+        const helpFileMatch = cells[3].match(/<a\s+href=['"]([^'"]+)['"][^>]*>([^<]+)<\/a>/);
+        const helpFile = helpFileMatch ? helpFileMatch[1] : null;
+        const helpFileName = helpFileMatch ? helpFileMatch[2].trim() : null;
+
+        const uploadLinkMatch = cells[7].match(/<a\s+href=['"]([^'"]+)['"]/);
+        const uploadLink = uploadLinkMatch ? uploadLinkMatch[1] : null;
+
+        pendingAssignments.push({
+          assignmentNo, title, description, helpFile, helpFileName,
+          dateAdded, lastDate, uploadLink,
+          courseId: course.courseId,
+          courseTitle: course.courseTitle,
+          assignmentUrl: assignmentPageUrl
+        });
+      }
+    }
+
+    return pendingAssignments;
+  }
+
+  // Helper to extract text from HTML
+  function extractText(html) {
+    if (!html) return '';
+    return html
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .trim();
+  }
+
+  // Cache assignments in chrome.storage
+  async function cacheAssignments(assignments, isComplete = true, completedCourses = 0, totalCourses = 0) {
+    await chrome.storage.local.set({
+      assignmentCache: {
+        lastFetched: Date.now(),
+        ttl: CACHE_TTL,
+        assignments: assignments,
+        isComplete: isComplete,
+        progress: {
+          completed: completedCourses,
+          total: totalCourses
+        }
+      }
+    });
+  }
+
+  // ========== END FETCH FUNCTIONS ==========
+
+  // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'assignmentsReady') {
       displayAssignments(message.assignments);
+    }
+    // Handle fetch trigger from view-all page (via background)
+    if (message.action === 'triggerFetch') {
+      fetchAllAssignments();
     }
   });
 
@@ -365,8 +582,8 @@
     // Show loading widget
     showLoadingWidget();
 
-    // Request fresh data from background script
-    chrome.runtime.sendMessage({ action: 'fetchAssignments' });
+    // Fetch directly from content script (has cookie access)
+    fetchAllAssignments();
   }
 
   // Find the Internal Marks box

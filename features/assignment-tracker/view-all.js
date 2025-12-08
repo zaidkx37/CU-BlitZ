@@ -28,6 +28,12 @@
 
       const result = await chrome.storage.local.get(['assignmentCache']);
 
+      // If cache is suspicious (likely from expired session), auto-refresh
+      if (result.assignmentCache && isCacheSuspicious(result.assignmentCache)) {
+        refreshAssignments();
+        return;
+      }
+
       if (result.assignmentCache?.assignments) {
         const assignments = result.assignmentCache.assignments;
 
@@ -308,6 +314,14 @@
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Check if cache is suspicious (likely from expired session)
+  // Cache with 0 courses processed likely means session was invalid during fetch
+  function isCacheSuspicious(cache) {
+    return cache.isComplete &&
+           cache.progress?.total === 0 &&
+           cache.assignments?.length === 0;
   }
 
 })();
